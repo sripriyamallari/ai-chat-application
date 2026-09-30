@@ -1,4 +1,5 @@
 import streamlit as st
+import time
 from google import genai
 from google.genai import types
 
@@ -10,7 +11,8 @@ st.set_page_config(
 st.title("🤖 AI Chat Assistant")
 st.caption("Gemini LLM Chat Application")
 
-# Get Gemini API key securely
+# ---------------- API KEY ----------------
+
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
 except Exception:
@@ -26,8 +28,20 @@ with st.sidebar:
 
     system_prompt = st.text_area(
         "Custom Instructions",
-        value="You are a helpful AI assistant.",
-        height=120
+        value="""You are a helpful and knowledgeable AI assistant.
+
+Give clear, detailed, and beginner-friendly answers.
+
+When explaining programming concepts, include:
+- A simple definition
+- How it works
+- A practical example
+- Code examples when useful
+- Important points or common mistakes
+
+Use headings, bullet points, and code blocks.
+Do not make answers unnecessarily short.""",
+        height=180
     )
 
     temperature = st.slider(
@@ -42,7 +56,7 @@ with st.sidebar:
         "Max Output Tokens",
         min_value=100,
         max_value=2000,
-        value=500,
+        value=1500,
         step=100
     )
 
@@ -57,7 +71,6 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 
-# Display previous messages
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
@@ -70,17 +83,15 @@ user_input = st.chat_input("Type your message...")
 
 if user_input:
 
-    # Show user message
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # Save user message
     st.session_state.messages.append({
         "role": "user",
         "content": user_input
     })
 
-    # Convert our history into Gemini format
+    # Convert history to Gemini format
     history = []
 
     for message in st.session_state.messages:
@@ -102,34 +113,36 @@ if user_input:
             )
         )
 
+    # ---------------- API CALL WITH RETRY ----------------
+
     try:
 
         with st.chat_message("assistant"):
 
             with st.spinner("Gemini is thinking..."):
 
-                response = client.models.generate_content(
-                    model="gemini-3.5-flash",
-                    contents=history,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_prompt,
-                        temperature=temperature,
-                        max_output_tokens=max_tokens
-                    )
-                )
+                response = None
 
-                answer = response.text
+                for attempt in range(3):
 
-                st.markdown(answer)
+                    try:
 
-        # Save assistant response
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": answer
-        })
+                        response = client.models.generate_content(
+                            model="gemini-3.5-flash-lite",
+                            contents=history,
+                            config=types.GenerateContentConfig(
+                                system_instruction=system_prompt,
+                                temperature=temperature,
+                                max_output_tokens=max_tokens
+                            )
+                        )
 
-    except Exception as e:
+                        break
 
-        st.error(
-            f"Gemini API error: {str(e)}"
-        )
+                    except Exception as api_error:
+
+                        error_text = str(api_error)
+
+                        if (
+                            "503" in error_text
+                            or "UN
