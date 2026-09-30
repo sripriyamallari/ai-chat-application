@@ -11,7 +11,8 @@ st.set_page_config(
 st.title("🤖 AI Chat Assistant")
 st.caption("Gemini LLM Chat Application")
 
-# API KEY
+# ---------------- API KEY ----------------
+
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
 except Exception:
@@ -20,13 +21,19 @@ except Exception:
 
 client = genai.Client(api_key=api_key)
 
-# SIDEBAR
+# ---------------- SIDEBAR ----------------
+
 with st.sidebar:
     st.header("⚙️ Settings")
 
     system_prompt = st.text_area(
         "Custom Instructions",
-        value="You are a helpful and knowledgeable AI assistant. Give clear, detailed, beginner-friendly answers. Use headings, bullet points, examples, and code when useful. Do not make answers unnecessarily short.",
+        value=(
+            "You are a helpful and knowledgeable AI assistant. "
+            "Give clear, detailed, beginner-friendly answers. "
+            "Use headings, bullet points, examples, and code when useful. "
+            "Do not make answers unnecessarily short."
+        ),
         height=150
     )
 
@@ -50,15 +57,18 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-# CHAT HISTORY
+# ---------------- CHAT HISTORY ----------------
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 for message in st.session_state.messages:
+
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# USER INPUT
+# ---------------- USER INPUT ----------------
+
 user_input = st.chat_input("Type your message...")
 
 if user_input:
@@ -76,18 +86,25 @@ if user_input:
 
     for message in st.session_state.messages:
 
-        role = "model" if message["role"] == "assistant" else "user"
+        role = (
+            "model"
+            if message["role"] == "assistant"
+            else "user"
+        )
 
         history.append(
             types.Content(
                 role=role,
                 parts=[
-                    types.Part(text=message["content"])
+                    types.Part(
+                        text=message["content"]
+                    )
                 ]
             )
         )
 
-    # GEMINI API WITH RETRY
+    # ---------------- GEMINI API ----------------
+
     try:
 
         with st.chat_message("assistant"):
@@ -96,6 +113,7 @@ if user_input:
 
                 response = None
 
+                # Automatic retry for temporary 503 errors
                 for attempt in range(3):
 
                     try:
@@ -124,32 +142,42 @@ if user_input:
                         else:
                             raise
 
-                answer = response.text
+                # ---------------- RESPONSE ----------------
 
                 answer = response.text
 
-if not answer:
-    answer = "I could not generate a response. Please try again."
+                if not answer:
+                    answer = (
+                        "I could not generate a response. "
+                        "Please try again."
+                    )
 
-st.markdown(answer)
+                st.markdown(answer)
 
-# Token usage
-if response.usage_metadata:
+                # ---------------- TOKEN USAGE ----------------
 
-    input_tokens = response.usage_metadata.prompt_token_count
-    output_tokens = response.usage_metadata.candidates_token_count
-    total_tokens = response.usage_metadata.total_token_count
+                usage = response.usage_metadata
 
-    st.caption(
-        f"📊 Tokens — Input: {input_tokens} | "
-        f"Output: {output_tokens} | "
-        f"Total: {total_tokens}"
-    )
+                if usage:
 
+                    input_tokens = usage.prompt_token_count or 0
+                    output_tokens = usage.candidates_token_count or 0
+                    total_tokens = usage.total_token_count or 0
+
+                    st.caption(
+                        f"📊 Tokens — "
+                        f"Input: {input_tokens} | "
+                        f"Output: {output_tokens} | "
+                        f"Total: {total_tokens}"
+                    )
+
+        # Save assistant response
         st.session_state.messages.append({
             "role": "assistant",
             "content": answer
         })
+
+    # ---------------- ERROR HANDLING ----------------
 
     except Exception as error:
 
