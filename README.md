@@ -12,7 +12,7 @@ The application provides conversational AI with chat history, custom instruction
 💻 GitHub Repository
 
 👉 "View Source Code"
-()
+(https://github.com/sripriyamallari)
 
 ✨ Features
 
