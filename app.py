@@ -1,4 +1,5 @@
-import streamlit as st
+
+    import streamlit as st
 import time
 from google import genai
 from google.genai import types
@@ -11,8 +12,7 @@ st.set_page_config(
 st.title("🤖 AI Chat Assistant")
 st.caption("Gemini LLM Chat Application")
 
-# ---------------- API KEY ----------------
-
+# API KEY
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
 except Exception:
@@ -21,64 +21,45 @@ except Exception:
 
 client = genai.Client(api_key=api_key)
 
-# ---------------- SIDEBAR ----------------
-
+# SIDEBAR
 with st.sidebar:
     st.header("⚙️ Settings")
 
     system_prompt = st.text_area(
         "Custom Instructions",
-        value="""You are a helpful and knowledgeable AI assistant.
-
-Give clear, detailed, and beginner-friendly answers.
-
-When explaining programming concepts, include:
-- A simple definition
-- How it works
-- A practical example
-- Code examples when useful
-- Important points or common mistakes
-
-Use headings, bullet points, and code blocks.
-Do not make answers unnecessarily short.""",
-        height=180
+        value="You are a helpful and knowledgeable AI assistant. Give clear, detailed, beginner-friendly answers. Use headings, bullet points, examples, and code when useful. Do not make answers unnecessarily short.",
+        height=150
     )
 
     temperature = st.slider(
         "Temperature",
-        min_value=0.0,
-        max_value=2.0,
-        value=0.7,
-        step=0.1
+        0.0,
+        2.0,
+        0.7,
+        0.1
     )
 
     max_tokens = st.slider(
         "Max Output Tokens",
-        min_value=100,
-        max_value=2000,
-        value=1500,
-        step=100
+        100,
+        2000,
+        1500,
+        100
     )
 
     if st.button("🗑️ Clear Chat"):
         st.session_state.messages = []
         st.rerun()
 
-
-# ---------------- CHAT HISTORY ----------------
-
+# CHAT HISTORY
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-
 for message in st.session_state.messages:
-
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-
-# ---------------- USER INPUT ----------------
-
+# USER INPUT
 user_input = st.chat_input("Type your message...")
 
 if user_input:
@@ -96,25 +77,18 @@ if user_input:
 
     for message in st.session_state.messages:
 
-        gemini_role = (
-            "model"
-            if message["role"] == "assistant"
-            else "user"
-        )
+        role = "model" if message["role"] == "assistant" else "user"
 
         history.append(
             types.Content(
-                role=gemini_role,
+                role=role,
                 parts=[
-                    types.Part(
-                        text=message["content"]
-                    )
+                    types.Part(text=message["content"])
                 ]
             )
         )
 
-    # ---------------- API CALL WITH RETRY ----------------
-
+    # GEMINI API WITH RETRY
     try:
 
         with st.chat_message("assistant"):
@@ -139,10 +113,37 @@ if user_input:
 
                         break
 
-                    except Exception as api_error:
+                    except Exception as error:
 
-                        error_text = str(api_error)
+                        if "503" in str(error):
 
-                        if (
-                            "503" in error_text
-                            or "UN
+                            if attempt < 2:
+                                time.sleep(2 ** attempt)
+                            else:
+                                raise
+
+                        else:
+                            raise
+
+                answer = response.text
+
+                if not answer:
+                    answer = "I could not generate a response. Please try again."
+
+                st.markdown(answer)
+
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": answer
+        })
+
+    except Exception as error:
+
+        st.error(
+            "⚠️ Gemini is temporarily unavailable. "
+            "Please try again in a few seconds."
+        )
+
+        st.caption(
+            "Technical details: " + str(error)
+        )
