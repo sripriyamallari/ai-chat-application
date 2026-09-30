@@ -126,10 +126,25 @@ if user_input:
 
                 answer = response.text
 
-                if not answer:
-                    answer = "I could not generate a response. Please try again."
+                answer = response.text
 
-                st.markdown(answer)
+if not answer:
+    answer = "I could not generate a response. Please try again."
+
+st.markdown(answer)
+
+# Token usage
+if response.usage_metadata:
+
+    input_tokens = response.usage_metadata.prompt_token_count
+    output_tokens = response.usage_metadata.candidates_token_count
+    total_tokens = response.usage_metadata.total_token_count
+
+    st.caption(
+        f"📊 Tokens — Input: {input_tokens} | "
+        f"Output: {output_tokens} | "
+        f"Total: {total_tokens}"
+    )
 
         st.session_state.messages.append({
             "role": "assistant",
