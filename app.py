@@ -109,7 +109,7 @@ if user_input:
             with st.spinner("Gemini is thinking..."):
 
                 response = client.models.generate_content(
-                    model="gemini-3.8-flash",
+                    model="gemini-3.7-flash",
                     contents=history,
                     config=types.GenerateContentConfig(
                         system_instruction=system_prompt,
