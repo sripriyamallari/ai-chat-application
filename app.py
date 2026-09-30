@@ -1,4 +1,6 @@
-import streamlit as st
+
+    
+        import streamlit as st
 from google import genai
 from google.genai import types
 
@@ -10,16 +12,17 @@ st.set_page_config(
 st.title("🤖 AI Chat Assistant")
 st.caption("Gemini LLM Chat Application")
 
-# Get API key from Streamlit Secrets
-api_key = st.secrets.get("GEMINI_API_KEY")
-
-if not api_key:
+# Get Gemini API key securely
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+except Exception:
     st.error("Gemini API key is not configured.")
     st.stop()
 
 client = genai.Client(api_key=api_key)
 
-# Sidebar
+# ---------------- SIDEBAR ----------------
+
 with st.sidebar:
     st.header("⚙️ Settings")
 
@@ -31,18 +34,18 @@ with st.sidebar:
 
     temperature = st.slider(
         "Temperature",
-        0.0,
-        2.0,
-        0.7,
-        0.1
+        min_value=0.0,
+        max_value=2.0,
+        value=0.7,
+        step=0.1
     )
 
     max_tokens = st.slider(
         "Max Output Tokens",
-        100,
-        2000,
-        500,
-        100
+        min_value=100,
+        max_value=2000,
+        value=500,
+        step=100
     )
 
     if st.button("🗑️ Clear Chat"):
@@ -50,7 +53,8 @@ with st.sidebar:
         st.rerun()
 
 
-# Initialize chat history
+# ---------------- CHAT HISTORY ----------------
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -62,45 +66,43 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 
-# User input
-user_input = st.chat_input("Type your message...")
+# ---------------- USER INPUT ----------------
 
+user_input = st.chat_input("Type your message...")
 
 if user_input:
 
-    # Display user message
+    # Show user message
     with st.chat_message("user"):
         st.markdown(user_input)
 
+    # Save user message
     st.session_state.messages.append({
         "role": "user",
         "content": user_input
     })
 
-    # Build conversation
-    conversation = []
-
-    conversation.append({
-        "role": "user",
-        "parts": [
-            {
-                "text": (
-                    f"System instructions: {system_prompt}\n\n"
-                    "User conversation:\n"
-                )
-            }
-        ]
-    })
+    # Convert our history into Gemini format
+    history = []
 
     for message in st.session_state.messages:
-        conversation.append({
-            "role": message["role"],
-            "parts": [
-                {
-                    "text": message["content"]
-                }
-            ]
-        })
+
+        gemini_role = (
+            "model"
+            if message["role"] == "assistant"
+            else "user"
+        )
+
+        history.append(
+            types.Content(
+                role=gemini_role,
+                parts=[
+                    types.Part(
+                        text=message["content"]
+                    )
+                ]
+            )
+        )
 
     try:
 
@@ -110,8 +112,9 @@ if user_input:
 
                 response = client.models.generate_content(
                     model="gemini-3.8-flash",
-                    contents=conversation,
+                    contents=history,
                     config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
                         temperature=temperature,
                         max_output_tokens=max_tokens
                     )
@@ -121,7 +124,7 @@ if user_input:
 
                 st.markdown(answer)
 
-        # Save AI response
+        # Save assistant response
         st.session_state.messages.append({
             "role": "assistant",
             "content": answer
@@ -130,6 +133,5 @@ if user_input:
     except Exception as e:
 
         st.error(
-            "Something went wrong. "
-            "Please check your API key and try again."
+            f"Gemini API error: {str(e)}"
         )
